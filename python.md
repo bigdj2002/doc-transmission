@@ -131,29 +131,31 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      python: 3.9
+      python: 3.13
     commands:
-      - echo "Installing pip and build tools..."
+      - echo "Installing dependencies and build tools..."
       - pip install --upgrade pip setuptools wheel
   pre_build:
     commands:
-      - echo "Installing dependencies..."
-      - pip install -r requirements.txt -t ./build
+      - echo "Installing application dependencies..."
+      - pip install numpy matplotlib -t ./build  # 종속성 설치 후 빌드 디렉토리에 복사
   build:
     commands:
       - echo "Packaging Lambda function..."
-      - cp lambda_function.py ./build
-      - cd build && zip -r ../lambda_function.zip .
+      - cp lambda_function.py ./build  # Lambda 핸들러 복사
+      - cd build && python ../setup.py sdist bdist_wheel  # setup.py로 패키지 빌드
+      - zip -r ../lambda_function.zip .  # ZIP 아카이브 생성
   post_build:
     commands:
-      - echo "Uploading to JFrog..."
-      - chmod +x jfrog_upload.sh && ./jfrog_upload.sh
-      - echo "Uploading Lambda package to S3..."
-      - aws s3 cp lambda_function.zip s3://my-lambda-artifact-bucket/lambda_function.zip
+      - echo "Updating Lambda function..."
+      - aws lambda update-function-code \
+          --function-name my-python-lambda \
+          --zip-file fileb://lambda_function.zip
 artifacts:
   files:
     - lambda_function.zip
   discard-paths: yes
+
 ```
 
 ---
