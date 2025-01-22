@@ -1,63 +1,29 @@
-import subprocess
-import os
+import matplotlib.pyplot as plt
+import numpy as np
 
-def calculate_and_verify_bitrate(file_path):
-    """
-    Calculate the video bitrate using file size and duration, and compare it with Mediainfo's reported bitrate.
+plt.title('BasketballDrive_1920x1080_50')
+ax1 = [5666.932541167665, 6969.79556511976, 9043.927769461077, 10620.777195608782, 12814.123315868264, 12814.123315868264]
+ay1 = [92.0657009004707, 94.61704435914471, 97.13259288836205, 98.29427592564862, 99.00538064584346, 99.00538064584346]
+ax2 = [5812.825910678643, 7666.201971057884, 10321.135853293414, 12449.058133732535, 14675.084206586826, 14675.084206586826]
+ay2 = [92.36990634448875, 95.62406110212785, 98.18850972726443, 99.2634520508413, 99.76677361777423, 99.76677361777423]
+ax3 = [6266.454590818364, 8370.597087075848, 10399.975049900198, 12460.355071107784, 14499.93138722555, 16072.936938622755]
+ay3 = [93.15819751201005, 96.26336609322027, 97.92983231787078, 98.84335536736832, 99.3231631684923, 99.47030225818702]
 
-    :param file_path: Path to the video file.
-    :return: A dictionary containing calculated and reported bitrates, and verification result.
-    """
-    if not os.path.isfile(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-    
-    try:
-        # Run mediainfo command and capture output
-        result = subprocess.run(
-            ["mediainfo", "--Output=JSON", file_path],
-            stdout=subprocess.PIPE,
-            text=True
-        )
-        
-        # Parse the JSON output
-        import json
-        info = json.loads(result.stdout)
-        
-        # Extract required fields
-        general_info = info['media']['track'][0]
-        file_size = int(general_info.get("FileSize", 0))  # File size in bytes
-        duration = float(general_info.get("Duration", 0)) / 1000  # Duration in seconds
-        
-        video_info = next(
-            (track for track in info['media']['track'] if track["@type"] == "Video"), None
-        )
-        reported_bitrate = float(video_info.get("BitRate", 0)) / 1000  # Bitrate in kbps
-        
-        # Calculate bitrate
-        if file_size > 0 and duration > 0:
-            calculated_bitrate = (file_size * 8) / (duration * 1000)  # kbps
-        else:
-            raise ValueError("Invalid file size or duration for bitrate calculation.")
-        
-        # Verification
-        is_match = abs(calculated_bitrate - reported_bitrate) < 0.1 * reported_bitrate  # 10% tolerance
-        
-        # Return results
-        return {
-            "calculated_bitrate_kbps": round(calculated_bitrate, 2),
-            "reported_bitrate_kbps": round(reported_bitrate, 2),
-            "verification_passed": is_match
-        }
-    
-    except Exception as e:
-        raise RuntimeError(f"Error while processing the file: {e}")
+plt.scatter(ax1, ay1, c='green', label='proposed')
+plt.scatter(ax2, ay2, c='blue', label='target')
+plt.scatter(ax3, ay3, c='red', label='vbr')
 
-# Example usage
-file_path = "/path/to/your/video.mp4"
-try:
-    result = calculate_and_verify_bitrate(file_path)
-    print(f"Calculated Bitrate: {result['calculated_bitrate_kbps']} kbps")
-    print(f"Reported Bitrate: {result['reported_bitrate_kbps']} kbps")
-    print(f"Verification Passed: {result['verification_passed']}")
-except Exception as e:
-    print(e)
+bx1 = np.linspace(np.min(ax1), np.max(ax1), 256)
+by1 = np.polyval(np.polyfit(ax1, ay1, 4), bx1)
+bx2 = np.linspace(np.min(ax2), np.max(ax2), 256)
+by2 = np.polyval(np.polyfit(ax2, ay2, 4), bx2)
+bx3 = np.linspace(np.min(ax3), np.max(ax3), 256)
+by3 = np.polyval(np.polyfit(ax3, ay3, 4), bx3)
+plt.plot(bx1, by1, c='green')
+plt.plot(bx2, by2, c='blue')
+plt.plot(bx3, by3, c='red')
+
+plt.xlabel('kbps')
+plt.ylabel('VMAF score')
+plt.legend()
+plt.show()
