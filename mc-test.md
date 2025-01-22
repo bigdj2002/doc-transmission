@@ -1,29 +1,45 @@
-import matplotlib.pyplot as plt
+import sys
+import os
+import tempfile
+import json
 import numpy as np
 
-plt.title('BasketballDrive_1920x1080_50')
-ax1 = [5666.932541167665, 6969.79556511976, 9043.927769461077, 10620.777195608782, 12814.123315868264, 12814.123315868264]
-ay1 = [92.0657009004707, 94.61704435914471, 97.13259288836205, 98.29427592564862, 99.00538064584346, 99.00538064584346]
-ax2 = [5812.825910678643, 7666.201971057884, 10321.135853293414, 12449.058133732535, 14675.084206586826, 14675.084206586826]
-ay2 = [92.36990634448875, 95.62406110212785, 98.18850972726443, 99.2634520508413, 99.76677361777423, 99.76677361777423]
-ax3 = [6266.454590818364, 8370.597087075848, 10399.975049900198, 12460.355071107784, 14499.93138722555, 16072.936938622755]
-ay3 = [93.15819751201005, 96.26336609322027, 97.92983231787078, 98.84335536736832, 99.3231631684923, 99.47030225818702]
+from scipy.interpolate import pchip_interpolate
 
-plt.scatter(ax1, ay1, c='green', label='proposed')
-plt.scatter(ax2, ay2, c='blue', label='target')
-plt.scatter(ax3, ay3, c='red', label='vbr')
+def bdbr_calculation(R1, Q1, R2, Q2, piecewise=0):
+    if len(R1) == 0 or len(Q1) == 0 or len(R2) == 0 or len(Q2) == 0:
+        raise ValueError("Input vectors must not be empty")
+    
+    lR1 = np.log(R1)
+    lR2 = np.log(R2)
 
-bx1 = np.linspace(np.min(ax1), np.max(ax1), 256)
-by1 = np.polyval(np.polyfit(ax1, ay1, 4), bx1)
-bx2 = np.linspace(np.min(ax2), np.max(ax2), 256)
-by2 = np.polyval(np.polyfit(ax2, ay2, 4), bx2)
-bx3 = np.linspace(np.min(ax3), np.max(ax3), 256)
-by3 = np.polyval(np.polyfit(ax3, ay3, 4), bx3)
-plt.plot(bx1, by1, c='green')
-plt.plot(bx2, by2, c='blue')
-plt.plot(bx3, by3, c='red')
+    # rate method
+    p1 = np.polyfit(Q1, lR1, 3)
+    p2 = np.polyfit(Q2, lR2, 3)
 
-plt.xlabel('kbps')
-plt.ylabel('VMAF score')
-plt.legend()
-plt.show()
+    # integration interval
+    min_int = max(min(Q1), min(Q2))
+    max_int = min(max(Q1), max(Q2))
+
+    # find integral
+    if piecewise == 0:
+        p_int1 = np.polyint(p1)
+        p_int2 = np.polyint(p2)
+
+        int1 = np.polyval(p_int1, max_int) - np.polyval(p_int1, min_int)
+        int2 = np.polyval(p_int2, max_int) - np.polyval(p_int2, min_int)
+    else:
+        lin = np.linspace(min_int, max_int, num=100, retstep=True)
+        interval = lin[1]
+        samples = lin[0]
+        v1 = pchip_interpolate(np.sort(Q1), np.sort(lR1), samples)
+        v2 = pchip_interpolate(np.sort(Q2), np.sort(lR2), samples)
+        # Calculate the integral using the trapezoid method on the samples.
+        int1 = np.trapz(v1, dx=interval)
+        int2 = np.trapz(v2, dx=interval)
+
+    # find avg diff
+    avg_exp_diff = (int2 - int1) / (max_int - min_int)
+    avg_diff = (np.exp(avg_exp_diff) - 1) * 100
+    
+    return avg_diff
